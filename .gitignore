@@ -1,0 +1,11 @@
+# NetBeans local project files
+/nbproject/private/
+
+# Maven build outputs
+/target/
+/build/
+*.class
+
+# macOS & System files
+.DS_Store
+Thumbs.db
