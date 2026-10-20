@@ -1,10 +1,127 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Start Page</title>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    </head>
-    <body>
-        <h1>Hello World!</h1>
-    </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MemeMandate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;900&family=Source+Serif+4&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Top bar -->
+<header>
+  <div class="container topbar">
+    <div class="logo">MEMEMANDATE</div>
+    <nav>
+      <button class="tab active" onclick="showPage('memes', this)">Memes</button>
+      <button class="tab" onclick="showPage('compare', this)">Compare</button>
+      <button class="tab" onclick="showPage('submit', this)">Submit</button>
+      <button class="tab" onclick="showPage('admin', this)">Admin</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- PAGE 1: Meme catalogue -->
+  <section id="memes" class="page show">
+    <h1>Memes</h1>
+    <p class="subtitle">A searchable directory of public political memes, kept for research.</p>
+    <hr>
+
+    <input id="search" class="search" type="text" placeholder="Search memes, leaders or issues..." oninput="showMemes()">
+
+    <div class="filters">
+      <select id="leaderFilter" onchange="showMemes()"></select>
+      <select id="platformFilter" onchange="showMemes()">
+        <option value="">All platforms</option>
+        <option>Instagram</option>
+        <option>X</option>
+      </select>
+      <select id="toneFilter" onchange="showMemes()">
+        <option value="">Any tone</option>
+        <option>Supportive</option>
+        <option>Critical</option>
+        <option>Humorous</option>
+        <option>Satirical</option>
+      </select>
+      <select id="yearFilter" onchange="showMemes()"></select>
+    </div>
+
+    <div class="count-row">
+      <span id="count"></span>
+      <button class="pill" onclick="exportCSV()">Export CSV</button>
+    </div>
+
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <!-- PAGE 2: Compare -->
+  <section id="compare" class="page">
+    <h1>Compare</h1>
+    <p class="subtitle">How the tone of memes differs by leader and by platform.</p>
+    <hr>
+    <div class="legend">
+      <span><i style="background:#25513a"></i>Supportive</span>
+      <span><i style="background:#1f2cff"></i>Critical</span>
+      <span><i style="background:#f0dc5a"></i>Humorous</span>
+      <span><i style="background:#000"></i>Satirical</span>
+    </div>
+    <h2>By leader</h2>
+    <div id="byLeader"></div>
+    <h2>By platform</h2>
+    <div id="byPlatform"></div>
+  </section>
+
+  <!-- PAGE 3: Submit -->
+  <section id="submit" class="page">
+    <h1>Submit</h1>
+    <p class="subtitle">Only public memes. A source link is required.</p>
+    <hr>
+    <form id="form">
+      <label>Title <input name="title" required></label>
+      <label>Source link <input name="url" type="url" required></label>
+      <label>Leader <input name="leader" required></label>
+      <label>Platform
+        <select name="platform"><option>Instagram</option><option>X</option></select>
+      </label>
+      <label>Date posted <input name="date" type="date" required></label>
+      <label>Issue <input name="issue" required></label>
+      <label>Event <input name="event"></label>
+      <label>Likes <input name="likes" type="number" value="0" min="0"></label>
+      <label>Tone
+        <select name="tone"><option>Supportive</option><option>Critical</option><option>Humorous</option><option>Satirical</option></select>
+      </label>
+      <label>Framing
+        <select name="framing"><option>Policy</option><option>Personality</option><option>Election</option><option>Governance</option></select>
+      </label>
+      <label class="wide">Context explanation <textarea name="explain" rows="3" required></textarea></label>
+      <div class="wide">
+        <button class="pill dark" type="submit">Submit for review</button>
+        <p id="message"></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- PAGE 4: Admin -->
+  <section id="admin" class="page">
+    <h1>Admin</h1>
+    <p class="subtitle">Approve new submissions or take down memes.</p>
+    <hr>
+    <table>
+      <thead><tr><th>Meme</th><th>Source</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="adminRows"></tbody>
+    </table>
+  </section>
+
+</main>
+
+<!-- Popup with meme details -->
+<div id="modal" class="modal" onclick="closeMeme()">
+  <div class="modal-box" id="modalBox" onclick="event.stopPropagation()"></div>
+</div>
+
+<script src="script.js"></script>
+</body>
 </html>
