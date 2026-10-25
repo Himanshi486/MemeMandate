@@ -60,7 +60,9 @@ function showPage(name, button) {
   document.getElementById(name).classList.add("show");
   button.classList.add("active");
 
-  if (name === "compare") showCompare();
+  if (name === "leaders") showLeaders();
+  if (name === "compare") fillCompareSelects();
+  if (name === "report") showReport();
   if (name === "admin") showAdmin();
 }
 
@@ -115,19 +117,7 @@ function showMemes() {
     return;
   }
 
-  let html = "";
-  for (let m of list) {
-    html += `
-      <div class="card" onclick="openMeme(${m.id})">
-        <div class="cover c${m.id % 4}"><span>${safe(m.title.split(" ")[0].toLowerCase())}</span></div>
-        <div class="card-top">
-          <h3>${safe(m.title)}</h3>
-          <div class="score">${getScore(m)}<small> /100</small></div>
-        </div>
-        <div class="card-info">${safe(m.leader)} · ${m.platform} · ${m.tone} · ${getYear(m)}</div>
-      </div>`;
-  }
-  document.getElementById("grid").innerHTML = html;
+  document.getElementById("grid").innerHTML = list.map(cardHTML).join("");
 }
 
 // ---------- 5. MEME POPUP ----------
@@ -195,12 +185,7 @@ function drawBars(field, elementId) {
   for (let group of groups) {
     let items = memes.filter(m => m.status === "live" && m[field] === group);
 
-    let bar = "";
-    for (let tone in toneColors) {
-      let n = items.filter(m => m.tone === tone).length;
-      let percent = (n / items.length) * 100;
-      bar += `<div style="width:${percent}%; background:${toneColors[tone]}" title="${tone}: ${n}"></div>`;
-    }
+    let bar = toneBar(items);
 
     html += `<div class="bar-row">
       <span class="bar-name">${safe(group)}</span>
@@ -211,15 +196,23 @@ function drawBars(field, elementId) {
   document.getElementById(elementId).innerHTML = html;
 }
 
-function showCompare() {
-  drawBars("leader", "byLeader");
-  drawBars("platform", "byPlatform");
+// One stacked bar showing how many memes have each tone
+function toneBar(items) {
+  let bar = "";
+  if (items.length === 0) return bar;
+  for (let tone in toneColors) {
+    let n = items.filter(m => m.tone === tone).length;
+    let percent = (n / items.length) * 100;
+    bar += `<div style="width:${percent}%; background:${toneColors[tone]}" title="${tone}: ${n}"></div>`;
+  }
+  return bar;
 }
 
 // ---------- 7. EXPORT CSV ----------
-function exportCSV() {
+function exportCSV(all) {
   let rows = ["title,leader,platform,date,issue,event,likes,shares,comments,tone,framing,url"];
-  for (let m of getFiltered()) {
+  let list = all ? memes.filter(x => x.status === "live") : getFiltered();
+  for (let m of list) {
     let line = [m.title, m.leader, m.platform, m.date, m.issue, m.event, m.likes, m.shares, m.comments, m.tone, m.framing, m.url];
     rows.push(line.map(v => '"' + v + '"').join(","));
   }
@@ -286,6 +279,272 @@ function setStatus(id, status) {
   showMemes();
 }
 
+// ---------- LEADERS ----------
+// To show a real photo, put the image in the webapp folder (for example images/leader-a.jpg)
+// and write its path in "photo". Use only photos you are allowed to use.
+let leaders = [
+  { name: "Leader A", party: "Party X", photo: "" },
+  { name: "Leader B", party: "Party Y", photo: "" },
+  { name: "Leader C", party: "Party Z", photo: "" }
+];
+const avatarColors = ["#25513a", "#1f2cff", "#c0392b", "#000000"];
+
+// Leaders in the list, plus any leader that only appears in submitted memes
+function allLeaders() {
+  let list = leaders.slice();
+  for (let m of memes) {
+    if (!list.some(l => l.name === m.leader)) list.push({ name: m.leader, party: "", photo: "" });
+  }
+  return list;
+}
+
+function leaderMemes(name) {
+  return memes.filter(m => m.status === "live" && m.leader === name);
+}
+
+// Round picture: the photo if there is one, otherwise the initials
+function avatarHTML(leader, index) {
+  if (leader.photo) {
+    return `<img class="avatar" src="${safe(leader.photo)}" alt="${safe(leader.name)}">`;
+  }
+  let initials = leader.name.split(" ").map(word => word[0]).join("").slice(0, 2).toUpperCase();
+  return `<div class="avatar" style="background:${avatarColors[index % 4]}">${initials}</div>`;
+}
+
+// One meme card (used on the Memes, Leaders and Compare pages)
+function cardHTML(m) {
+  return `
+    <div class="card" onclick="openMeme(${m.id})">
+      <div class="cover c${m.id % 4}"><span>${safe(m.title.split(" ")[0].toLowerCase())}</span></div>
+      <div class="card-top">
+        <h3>${safe(m.title)}</h3>
+        <div class="score">${getScore(m)}<small> /100</small></div>
+      </div>
+      <div class="card-info">${safe(m.leader)} · ${m.platform} · ${m.tone} · ${getYear(m)}</div>
+    </div>`;
+}
+
+// Show all leaders (also used by the search box and the back button)
+function showLeaders() {
+  document.getElementById("leaderView").classList.add("hide");
+  document.getElementById("leaderList").classList.remove("hide");
+
+  let text = document.getElementById("leaderSearch").value.toLowerCase();
+  let options = "<option value=''>Or choose from the list...</option>";
+  let cards = "";
+
+  allLeaders().forEach(function (leader, i) {
+    options += `<option value="${i}">${safe(leader.name)}</option>`;
+    if (leader.name.toLowerCase().includes(text)) {
+      cards += `
+        <div class="leader-card" onclick="openLeader(${i})">
+          ${avatarHTML(leader, i)}
+          <h3>${safe(leader.name)}</h3>
+          <p>${safe(leader.party)}</p>
+          <p>${leaderMemes(leader.name).length} memes</p>
+        </div>`;
+    }
+  });
+
+  document.getElementById("leaderSelect").innerHTML = options;
+  document.getElementById("leaderGrid").innerHTML = cards || "<p>No leader found.</p>";
+}
+
+// Show every meme of one leader
+function openLeader(i) {
+  if (i === "") return;
+  let leader = allLeaders()[i];
+  let items = leaderMemes(leader.name);
+
+  document.getElementById("leaderHead").innerHTML =
+    avatarHTML(leader, i) + `<div><h2>${safe(leader.name)}</h2><p>${safe(leader.party)} · ${items.length} memes</p></div>`;
+  document.getElementById("leaderMemeGrid").innerHTML = items.map(cardHTML).join("") || "<p>No memes for this leader yet.</p>";
+
+  document.getElementById("leaderList").classList.add("hide");
+  document.getElementById("leaderView").classList.remove("hide");
+}
+
+// ---------- COMPARE LEADERS ----------
+// Each leader gets its own line style on the chart
+const lineStyles = [
+  { color: "#1f2cff", dash: "", css: "solid" },
+  { color: "#e0561f", dash: "8 5", css: "dashed" },
+  { color: "#9b27af", dash: "2 4", css: "dotted" }
+];
+
+function fillCompareSelects() {
+  let names = allLeaders().map(l => l.name);
+  ["cmpA", "cmpB", "cmpC"].forEach(function (id, i) {
+    let select = document.getElementById(id);
+    let old = select.value;
+    let options = id === "cmpC" ? "<option value=''>No third leader</option>" : "";
+    options += names.map(n => `<option>${safe(n)}</option>`).join("");
+    select.innerHTML = options;
+    select.value = old || names[i] || "";
+  });
+  compareLeaders();
+}
+
+function compareLeaders() {
+  let names = [];
+  for (let id of ["cmpA", "cmpB", "cmpC"]) {
+    let value = document.getElementById(id).value;
+    if (value && !names.includes(value)) names.push(value);
+  }
+  drawChart(names);
+  drawTable(names);
+}
+
+// Line chart: how much attention each leader's memes got, year by year
+function drawChart(names) {
+  let years = memes.filter(m => m.status === "live").map(m => Number(getYear(m)));
+  let first = Math.min(...years);
+  let last = Math.max(...years);
+
+  // add up the engagement of each leader's memes for every year
+  let data = names.map(function (name) {
+    let values = [];
+    for (let y = first; y <= last; y++) {
+      let sum = 0;
+      for (let m of leaderMemes(name)) {
+        if (Number(getYear(m)) === y) sum += engagement(m);
+      }
+      values.push(sum);
+    }
+    return values;
+  });
+  let max = Math.max(1, ...data.flat());
+
+  let left = 50, right = 980, top = 40, bottom = 290;
+  let steps = Math.max(1, last - first);
+  function xOf(year) { return left + 30 + ((year - first) / steps) * (right - left - 60); }
+  function yOf(value) { return bottom - (value / 100) * (bottom - top); }
+
+  let svg = "";
+  for (let v of [0, 25, 50, 75, 100]) {
+    svg += `<line class="grid-line" x1="${left}" x2="${right}" y1="${yOf(v)}" y2="${yOf(v)}"/>
+            <text class="axis-text" x="${left - 10}" y="${yOf(v) + 4}" text-anchor="end">${v}</text>`;
+  }
+  svg += `<line class="axis-line" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>`;
+  for (let y = first; y <= last; y++) {
+    svg += `<text class="axis-text" x="${xOf(y)}" y="${bottom + 24}" text-anchor="middle">${y}</text>`;
+  }
+
+  names.forEach(function (name, i) {
+    let style = lineStyles[i];
+    let points = data[i].map((v, j) => xOf(first + j) + "," + yOf((v / max) * 100)).join(" ");
+    svg += `<polyline points="${points}" fill="none" stroke="${style.color}" stroke-width="3" stroke-dasharray="${style.dash}"/>`;
+
+    // circle and name at the highest point
+    let peak = data[i].indexOf(Math.max(...data[i]));
+    let px = xOf(first + peak);
+    let py = yOf((data[i][peak] / max) * 100);
+    svg += `<circle class="peak" cx="${px}" cy="${py}" r="6"/>
+            <text class="peak-label" x="${px}" y="${py - 14}" text-anchor="middle">${safe(name)}</text>`;
+  });
+
+  document.getElementById("compareChart").innerHTML = `
+    <svg class="chart" viewBox="0 0 1000 330">${svg}</svg>
+    <p class="note">Attention index, 0 to 100, based on the yearly engagement of each leader's archived memes.</p>`;
+}
+
+// Big picture for a leader: the photo, or a coloured square with initials
+function leaderCover(leader, index) {
+  if (leader.photo) return `<img class="cover photo" src="${safe(leader.photo)}" alt="${safe(leader.name)}">`;
+  let initials = leader.name.split(" ").map(word => word[0]).join("").slice(0, 2).toLowerCase();
+  return `<div class="cover c${index % 4}"><span>${initials}</span></div>`;
+}
+
+// "Side by side" table
+function drawTable(names) {
+  if (names.length === 0) {
+    document.getElementById("compareTable").innerHTML = "<p>Choose a leader to compare.</p>";
+    return;
+  }
+
+  let list = allLeaders();
+  let head = "";
+  let rows = { party: "", memes: "", score: "", platform: "", tone: "", mix: "", titles: "" };
+
+  names.forEach(function (name, i) {
+    let index = list.findIndex(l => l.name === name);
+    let leader = list[index];
+    let items = leaderMemes(name);
+    let style = lineStyles[i];
+
+    let total = 0, instagram = 0, x = 0;
+    for (let m of items) {
+      total += getScore(m);
+      if (m.platform === "X") x++; else instagram++;
+    }
+    let average = items.length ? Math.round(total / items.length) : 0;
+
+    let topTone = "-", topCount = 0;
+    for (let tone in toneColors) {
+      let n = items.filter(m => m.tone === tone).length;
+      if (n > topCount) { topCount = n; topTone = tone; }
+    }
+
+    head += `<div>${leaderCover(leader, index)}
+      <p class="col-name"><i class="key" style="border-top:3px ${style.css} ${style.color}"></i>${safe(name)}</p></div>`;
+    rows.party += `<div>${safe(leader.party) || "-"}</div>`;
+    rows.memes += `<div><b>${items.length}</b></div>`;
+    rows.score += `<div><span class="big">${average}</span><small> /100</small></div>`;
+    rows.platform += `<div>${instagram} Instagram · ${x} X</div>`;
+    rows.tone += `<div><b>${topTone}</b></div>`;
+    rows.mix += `<div><div class="bar">${toneBar(items)}</div></div>`;
+    rows.titles += `<div>${items.map(m => `<div class="meme-link" onclick="openMeme(${m.id})">${safe(m.title)}</div>`).join("") || "-"}</div>`;
+  });
+
+  function row(label, cells) {
+    return `<div class="sbs-row" style="--n:${names.length}"><span class="sbs-label">${label}</span>${cells}</div>`;
+  }
+
+  document.getElementById("compareTable").innerHTML =
+    `<div class="sbs-row sbs-head" style="--n:${names.length}"><span></span>${head}</div>` +
+    row("Party", rows.party) +
+    row("Memes in archive", rows.memes) +
+    row("Average engagement", rows.score) +
+    row("Platforms", rows.platform) +
+    row("Most common tone", rows.tone) +
+    row("Tone mix", rows.mix) +
+    row("Memes", rows.titles);
+}
+
+// ---------- REPORT ----------
+function showReport() {
+  drawBars("leader", "byLeader");
+  drawBars("platform", "byPlatform");
+
+  let rows = "";
+  for (let leader of allLeaders()) {
+    let items = leaderMemes(leader.name);
+    let total = 0;
+    let topTone = "-";
+    let topCount = 0;
+    for (let m of items) total += getScore(m);
+    for (let tone in toneColors) {
+      let n = items.filter(m => m.tone === tone).length;
+      if (n > topCount) { topCount = n; topTone = tone; }
+    }
+    let average = items.length ? Math.round(total / items.length) : 0;
+    rows += `<tr><td>${safe(leader.name)}</td><td>${items.length}</td><td>${topTone}</td><td>${average}/100</td></tr>`;
+  }
+  document.getElementById("reportRows").innerHTML = rows;
+}
+
+// ---------- LIGHT AND DARK MODE ----------
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("theme", theme);
+  document.getElementById("themeBtn").textContent = theme === "dark" ? "☾" : "☀";
+}
+
+function toggleTheme() {
+  setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+}
+
 // ---------- 10. START ----------
+setTheme(localStorage.getItem("theme") || "light");
 fillFilters();
 showMemes();
